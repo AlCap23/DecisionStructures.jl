@@ -1,5 +1,27 @@
-using AbstractTrees
+"""
+    $(TYPEDEF)
 
+    The basic structure of the decision node.
+
+    ## Fields
+
+    $(FIELDS)
+
+    ## Additional Information
+
+    Each node has the potential to store additional information in form of a `NamedTuple`. 
+    The choice of the additional information should be consistent over all `DecisionNode`s of a tree. 
+    Additional information can be added either via the keywords in the constructor or by constructing a `DecisionNode`
+    and passing in the `NamedTuple`. 
+    All information inside the `NamedTuple` can be acceseed via the `getproperty` overload, allowing the syntax
+
+    ```julia
+    node = DecisionNode(0; a = 3, b = "Info" , something = nothing)
+    node.a # Returns 3
+    node.b # Returns "Info"
+    node.something # Returns nothing
+    ```
+"""
 struct DecisionNode{N <: NamedTuple} <: AbstractNode{N}
     "The current action"
     action::Int
@@ -47,7 +69,7 @@ function add_child!(node::DecisionNode, action::Int; reward_index::Int = 0, kwar
     add_child!(node, child)
 end
 
-function Base.in(actions::Vector{Int}, node::DecisionNode)
+function Base.in(actions::AbstractVector{Int}, node::DecisionNode)
     current = node
     @inbounds for i in axes(actions, 1)
         action = actions[i]
@@ -68,7 +90,7 @@ function Base.get!(f::Function, node::DecisionNode{N}, action::Int) where N
     return get_information(node)::N
 end
 
-function Base.get!(f::Function, node::DecisionNode{N}, actions::Vector{Int}) where N
+function Base.get!(f::Function, node::DecisionNode{N}, actions::AbstractVector{Int}) where N
     @assert first(Base.return_types(f)) == N "The return type of $f is not compatible with the node information $N"
     current = node
     @inbounds for i in axes(actions[1:end-1],1)
@@ -80,7 +102,8 @@ function Base.get!(f::Function, node::DecisionNode{N}, actions::Vector{Int}) whe
     get!(f, current, actions[end])::N
 end
 
-function get_node(node::DecisionNode, actions::Vector{Int})
+function get_node(node::DecisionNode, actions::AbstractVector{Int})
+    isempty(actions) && return node
     current = node
     @inbounds for i in axes(actions, 1)
         action = actions[i]
@@ -91,18 +114,3 @@ function get_node(node::DecisionNode, actions::Vector{Int})
     current
 end
 
-
-struct DecisionTree{T, N}
-    "The root of the decision tree"
-    root::DecisionNode{N}
-    "The rewards associated with the current action"
-    rewards::Vector{T}
-end
-
-DecisionTree{T}(root::DecisionNode{N}) where {T, N} = DecisionTree{T, N}(root, T[])
-
-Base.in(actions::Vector{Int}, tree::DecisionTree) = Base.in(actions, tree.root)
-
-function Base.get!(f::Function, tree::DecisionTree, action::A)
-    
-end
