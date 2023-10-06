@@ -2,6 +2,12 @@ using IntegerDecisionTrees
 using AbstractTrees
 using Test
 
+using Aqua
+
+@testset "Aqua" begin
+    Aqua.test_all(IntegerDecisionTrees)
+end
+
 @testset "DecisionStructures.jl" begin
     @testset "Nodes" begin
         f = () -> (; a = rand(Int64), b = reduce(*, rand(Char, 4)), c = rand(Float64, 2))
