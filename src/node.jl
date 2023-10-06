@@ -33,7 +33,10 @@ struct DecisionNode{N <: NamedTuple} <: AbstractNode{N}
     reward_index::Int
 end
 
-function DecisionNode(action::Int, children::Vector{DecisionNode} = DecisionNode[]; reward_index::Int = 0, kwargs...)
+function DecisionNode(action::Int,
+    children::Vector{DecisionNode} = DecisionNode[];
+    reward_index::Int = 0,
+    kwargs...)
     information = NamedTuple(kwargs)
     DecisionNode{typeof(information)}(action, children, information, reward_index)
 end
@@ -48,14 +51,12 @@ AbstractTrees.nodevalue(node::DecisionNode) = getfield(node, :information)
 """
 get_action(node::DecisionNode) = getfield(node, :action)
 
-
 """
     $(SIGNATURES)
 
     Return the `information` of the given `node`.
 """
 get_information(node::DecisionNode) = getfield(node, :information)
-
 
 """
     $(SIGNATURES)
@@ -65,25 +66,24 @@ get_information(node::DecisionNode) = getfield(node, :information)
 get_reward_index(node::DecisionNode) = getfield(node, :reward_index)
 
 AbstractTrees.NodeType(::Type{<:DecisionNode}) = HasNodeType()
-AbstractTrees.nodetype(::Type{<:DecisionNode{N}}) where N = DecisionNode{N}
+AbstractTrees.nodetype(::Type{<:DecisionNode{N}}) where {N} = DecisionNode{N}
 
 function Base.getproperty(node::DecisionNode, value::Symbol)
     return _getprop(node, getfield(node, :information), value)
 end
 
-@generated function _getprop(node::DecisionNode, nt::NamedTuple{fields}, value::Symbol) where fields
-    :(
-        value ∈ fields ? getfield(nt, value) : getfield(node, value)
-    )
+@generated function _getprop(node::DecisionNode,
+    nt::NamedTuple{fields},
+    value::Symbol) where {fields}
+    :(value ∈ fields ? getfield(nt, value) : getfield(node, value))
 end
-
 
 """
     $(SIGNATURES)
 
     Add a `DecisionNode` as the direct descendant of the `node`.
 """
-function add_child!(node::DecisionNode{N}, child::DecisionNode{N}) where N
+function add_child!(node::DecisionNode{N}, child::DecisionNode{N}) where {N}
     any(==(child.action), map(get_action, children(node))) && return node
     push!(node.children, child)
     return node
@@ -103,13 +103,13 @@ function Base.in(actions::AbstractVector{Int}, node::DecisionNode)
     current = node
     @inbounds for i in axes(actions, 1)
         action = actions[i]
-        id = isempty(children(current)) ? nothing : findfirst(==(action), map(get_action, children(current)))
+        id = isempty(children(current)) ? nothing :
+             findfirst(==(action), map(get_action, children(current)))
         isnothing(id) && return false
         current = children(current)[id]
     end
     return true
 end
-
 
 """
     $(SIGNATURES)
@@ -119,9 +119,10 @@ end
     
     This is intended to be called using `do` block syntax.
 """
-function Base.get!(f::Function, node::DecisionNode{N}, action::Int) where N
-    @assert first(Base.return_types(f)) == N "The return type of $f is not compatible with the node information $N"
-    id = isempty(children(node)) ? nothing : findfirst(==(action), map(get_action, children(node)))
+function Base.get!(f::Function, node::DecisionNode{N}, action::Int) where {N}
+    @assert first(Base.return_types(f))==N "The return type of $f is not compatible with the node information $N"
+    id = isempty(children(node)) ? nothing :
+         findfirst(==(action), map(get_action, children(node)))
     if isnothing(id)
         child = DecisionNode(action, DecisionNode[], f(), 0)::DecisionNode{N}
         push!(children(node), child)
@@ -140,12 +141,15 @@ end
     
     This is intended to be called using `do` block syntax.
 """
-function strict_get!(f::Function, node::DecisionNode{N}, actions::AbstractVector{Int}) where N
-    @assert first(Base.return_types(f)) == N "The return type of $f is not compatible with the node information $N"
+function strict_get!(f::Function,
+    node::DecisionNode{N},
+    actions::AbstractVector{Int}) where {N}
+    @assert first(Base.return_types(f))==N "The return type of $f is not compatible with the node information $N"
     current = node
-    @inbounds for i in axes(actions[1:end-1],1)
+    @inbounds for i in axes(actions[1:(end - 1)], 1)
         action = actions[i]
-        id = isempty(children(current)) ? nothing : findfirst(==(action), map(get_action, children(current)))
+        id = isempty(children(current)) ? nothing :
+             findfirst(==(action), map(get_action, children(current)))
         isnothing(id) && return get_information(node)::N
         current = children(current)[id]
     end
@@ -161,14 +165,17 @@ end
     
     This is intended to be called using `do` block syntax.
 """
-function Base.get!(f::Function, node::DecisionNode{N}, actions::AbstractVector{Int}) where N
-    @assert first(Base.return_types(f)) == N "The return type of $f is not compatible with the node information $N"
+function Base.get!(f::Function,
+    node::DecisionNode{N},
+    actions::AbstractVector{Int}) where {N}
+    @assert first(Base.return_types(f))==N "The return type of $f is not compatible with the node information $N"
     current = node
     information = f()
-    @inbounds for i in axes(actions,1)
+    @inbounds for i in axes(actions, 1)
         action = actions[i]
-        id = isempty(children(current)) ? nothing : findfirst(==(action), map(get_action, children(current)))
-        if isnothing(id) 
+        id = isempty(children(current)) ? nothing :
+             findfirst(==(action), map(get_action, children(current)))
+        if isnothing(id)
             child = DecisionNode(action; information...)
             push!(children(current), child)
             current = child
@@ -190,10 +197,10 @@ function get_node(node::DecisionNode, actions::AbstractVector{Int})
     current = node
     @inbounds for i in axes(actions, 1)
         action = actions[i]
-        id = isempty(children(current)) ? nothing : findfirst(==(action), map(get_action, children(current)))
+        id = isempty(children(current)) ? nothing :
+             findfirst(==(action), map(get_action, children(current)))
         isnothing(id) && return nothing
         current = children(current)[id]
     end
     current
 end
-
