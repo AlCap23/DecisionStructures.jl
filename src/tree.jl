@@ -108,7 +108,7 @@ end
 function Base.get!(f::Function,
     tree::DecisionTree,
     actions::AbstractVector{Vector{Int}};
-    pool::AbstractWorkerPool = WorkerPool(1:1))
+    pool::AbstractWorkerPool = WorkerPool([1]))
     reward_idx = zeros(Int, size(actions, 1))
     indicators = zeros(Bool, size(actions, 1))
     offset = size(tree.rewards, 1)
