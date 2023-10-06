@@ -1,4 +1,4 @@
-name = "DecisionStructures"
+name = "IntegerDecisionTrees"
 uuid = "898d3975-6f61-4afe-9cf3-db6863983db4"
 authors = ["Carl Julius Martensen"]
 version = "0.0.1"

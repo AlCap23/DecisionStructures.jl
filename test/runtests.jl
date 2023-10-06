@@ -1,4 +1,4 @@
-using DecisionStructures
+using IntegerDecisionTrees
 using AbstractTrees
 using Test
 
