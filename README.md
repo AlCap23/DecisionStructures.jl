@@ -7,4 +7,6 @@
 Implements two simple storage structures, useable for (sequential) decision making processes using integer decision with arbitrary information inside the nodes and possible computationally expensive objective / reward functions.
 
 
+## Useage
 
+Please refer to the test for now.
