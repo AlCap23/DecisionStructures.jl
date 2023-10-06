@@ -23,28 +23,87 @@ function DecisionTree(root::DecisionNode{N}, reward::R) where {R, N}
     DecisionTree{T, R, N}(root, reward, T[])
 end
 
+
+"""
+    $(SIGNATURES)
+
+    Checks if, starting from the root of the provided `tree`, the sequence of `actions` can be found.
+"""
 Base.in(actions::AbstractVector{Int}, tree::DecisionTree) = Base.in(actions, tree.root)
 
+"""
+    $(SIGNATURES)
+
+    Find the descendent of the root of `tree` corresponding to the provided sequence of `actions` starting
+    from `node`. If no descendent is found, returns `nothing`.
+"""
 get_node(tree::DecisionTree, actions::AbstractVector{Int}) = get_node(tree.root, actions)
 
+
+"""
+    $(SIGNATURES)
+
+    Find the reward of the descendent of the root of `tree` corresponding to the provided sequence of `actions` starting
+    from `node`. If no descendent is found or no valid reward exists, returns `nothing`.
+"""
 get_reward(tree::DecisionTree, actions::AbstractVector{Int}) = begin
     node = get_node(tree, actions)
+    isnothing(node) && return nothing
     id = get_reward_index(node)
-    iszero(id) ? throw(ErrorException("The node does not have a proper reward.")) : getindex(tree.rewards, id)
+    iszero(id) ? nothing : getindex(tree.rewards, id)
 end
 
 
-function add_actions!(f::Function, tree::DecisionTree, actions::AbstractVector{Int})
-    (actions ∈ tree.root) && return f() 
+"""
+    $(SIGNATURES)
+
+    Adds a sequence of `actions` to the `tree`. If no itermediate action is found a new one is created. This new
+    action has no reward and uses the `information` returned by `f`.
+        
+    This is intended to be called using `do` block syntax.
+"""
+function Base.get!(f::Function, tree::DecisionTree, actions::AbstractVector{Int})
+    (actions ∈ tree.root) && return getindex(tree.rewards, get_reward_index(get_node(tree.root, actions)))
     reward_index = size(tree.rewards, 1) + 1
-    parent = get_node(tree.root, actions[1:end-1])
-    child = DecisionNode(last(actions), DecisionNode[], f(), reward_index)
+
+    __get_wo_reward!(f, tree, actions, reward_index)
+
     push!(tree.rewards, tree.reward(actions))
-    push!(children(parent), child)
-    return last(tree.rewards)
+
+    return tree.rewards[reward_index]
 end
 
-function add_actions!(f::Function, tree::DecisionTree, actions::AbstractVector{Vector{Int}}; pool::AbstractWorkerPool = WorkerPool(1:1))
+
+# Simply adds the new sequence to the node w/o computing a reward
+function __get_wo_reward!(f::Function, tree::DecisionTree{<:Any, <:Any, N}, actions::AbstractVector{Int}, reward_index::Int) where N
+
+    @assert first(Base.return_types(f)) == N "The return type of $f is not compatible with the node information $N"
+    current = tree.root
+    information = f()
+    @inbounds for i in axes(actions,1)
+        action = actions[i]
+        id = isempty(children(current)) ? nothing : findfirst(==(action), map(get_action, children(current)))
+        if isnothing(id) 
+            child = DecisionNode(action, DecisionNode[]; reward_index = i == size(actions, 1) ? reward_index : 0, information...)
+            push!(children(current), child)
+            current = child
+        else
+            current = children(current)[id]
+        end
+    end
+    return nothing
+end
+
+
+"""
+    $(SIGNATURES)
+
+    Adds a batch of `action`s to the `tree`, behaving like a single `get!` but distributes the computation of the `reward` over the available processes controlled
+    by passing in an `AbstractWorkerPool` inside the keyworded arguments (`pool = ...`). Defaults to using the main process.
+
+    This is intended to be called using `do` block syntax.
+"""
+function Base.get!(f::Function, tree::DecisionTree, actions::AbstractVector{Vector{Int}}; pool::AbstractWorkerPool = WorkerPool(1:1))
     reward_idx = zeros(Int, size(actions, 1))
     indicators = zeros(Bool, size(actions, 1))
     offset = size(tree.rewards, 1)
@@ -60,14 +119,14 @@ function add_actions!(f::Function, tree::DecisionTree, actions::AbstractVector{V
 
         indicators[i] = true
         offset += 1
-        reward_idx[i] = offset 
-        parent = get_node(tree.root, action[1:end-1])
-        child = DecisionNode(last(action), DecisionNode[], f(), reward_idx[i])
-        push!(children(parent), child)
+        reward_idx[i] = offset
+        __get_wo_reward!(f, tree, action, reward_idx[i]) 
+        
+        
     end
 
-    tree.rewards[indicators] = pmap(tree.reward, pool, actions[indicators])
-
+    new_rewards = pmap(tree.reward, pool, actions[indicators])
+    append!(tree.rewards, new_rewards)
     return tree.rewards[reward_idx]
 end
 
