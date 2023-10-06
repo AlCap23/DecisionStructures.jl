@@ -1,4 +1,4 @@
-module DecisionStructures
+module IntegerDecisionTrees
 
 using AbstractTrees
 using Distributed
